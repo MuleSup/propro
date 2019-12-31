@@ -1,0 +1,36 @@
+<wsdl:definitions name="CallDataService" targetNamespace="http://www.example.org/CallDataService/" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:tns="http://www.example.org/CallDataService/" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+   <wsdl:types>
+      <xsd:schema>
+         <xsd:import namespace="" schemaLocation="CallDataService.xsd"/>
+      </xsd:schema>
+   </wsdl:types>
+   <wsdl:message name="CallDataServiceRequest">
+      <wsdl:part name="parameters" element="CallDataServiceRequest"/>
+   </wsdl:message>
+   <wsdl:message name="CallDataServiceResponse">
+      <wsdl:part name="parameters" element="CallDataServiceResponse"/>
+   </wsdl:message>
+   <wsdl:portType name="CallDataService">
+      <wsdl:operation name="CallDataService">
+         <wsdl:input message="tns:CallDataServiceRequest"/>
+         <wsdl:output message="tns:CallDataServiceResponse"/>
+      </wsdl:operation>
+   </wsdl:portType>
+   <wsdl:binding name="CallDataServiceSOAP" type="tns:CallDataService">
+      <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+      <wsdl:operation name="CallDataService">
+         <soap:operation soapAction="http://www.example.org/CallDataService/CallDataService"/>
+         <wsdl:input>
+            <soap:body use="literal"/>
+         </wsdl:input>
+         <wsdl:output>
+            <soap:body use="literal"/>
+         </wsdl:output>
+      </wsdl:operation>
+   </wsdl:binding>
+   <wsdl:service name="CallDataService">
+      <wsdl:port binding="tns:CallDataServiceSOAP" name="CallDataServiceSOAP">
+         <soap:address location="http://www.example.org/"/>
+      </wsdl:port>
+   </wsdl:service>
+</wsdl:definitions>
