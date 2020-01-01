@@ -16,3 +16,20 @@ ns soap http://schemas.xmlsoap.org/soap/envelope
     }
   }
 }
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">
+   <soapenv:Header/>
+   <soapenv:Body>
+      <CallDataServiceRequest action="retrieveTaxonomyFileNames" version="1.0">
+         <inputs>
+            <!--Optional:-->
+            <dataSerialName>3041358</dataSerialName>
+            <!--Optional:-->
+            <reportName>?</reportName>
+            <!--Optional:-->
+            <version>?</version>
+            <!--Optional:-->
+            <reportingPeriodEndDate>20-Mar-19</reportingPeriodEndDate>
+         </inputs>
+      </CallDataServiceRequest>
+   </soapenv:Body>
+</soapenv:Envelope>
