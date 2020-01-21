@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:aggregators="http://www.mulesoft.org/schema/mule/aggregators" xmlns:validation="http://www.mulesoft.org/schema/mule/validation"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:java="http://www.mulesoft.org/schema/mule/java" xmlns:batch="http://www.mulesoft.org/schema/mule/batch" xmlns:s3="http://www.mulesoft.org/schema/mule/s3" xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/s3 http://www.mulesoft.org/schema/mule/s3/current/mule-s3.xsd
+http://www.mulesoft.org/schema/mule/batch http://www.mulesoft.org/schema/mule/batch/current/mule-batch.xsd
+http://www.mulesoft.org/schema/mule/java http://www.mulesoft.org/schema/mule/java/current/mule-java.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/validation http://www.mulesoft.org/schema/mule/validation/current/mule-validation.xsd
+http://www.mulesoft.org/schema/mule/aggregators http://www.mulesoft.org/schema/mule/aggregators/current/mule-aggregators.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="6082fe21-349d-4c64-bde9-d32c82852177" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<s3:config name="Amazon_S3_Configuration" doc:name="Amazon S3 Configuration" doc:id="c5f32678-7acd-49b0-a662-ea8488aacd45" >
+		<s3:basic-connection accessKey="AKIA5NUKA4JWZRV6S6NO" secretKey="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" region="AP_SOUTH_1"/>
+	</s3:config>
+	<flow name="s3uploadpocFlow" doc:id="d7cac341-eb0e-474d-87ac-f877fa1f7ba5" >
+		<http:listener doc:name="Listener" doc:id="25d9c39a-4270-4ba1-baff-4ca012b95c41" config-ref="HTTP_Listener_config" path="/s3upload"/>
+		<set-variable value="#[now()]" doc:name="Set Variable" doc:id="21063c8b-d26d-4160-bac7-2c4db31251c6" variableName="entryTime"/>
+		<s3:initiate-multipart-upload doc:name="initiate multipart upload" doc:id="ee276de5-87c3-469b-8f8b-9386d33c67c5" config-ref="Amazon_S3_Configuration" bucketName="s3mutilpartupload" key="test.csv" acl="BUCKET_OWNER_FULL_CONTROL" />
+		<set-variable value="#[payload]" doc:name="Set Variable" doc:id="d9d4420f-46e0-4ac9-824e-d829e92e8dd8" variableName="uploadID"/>
+		<file:list doc:name="List" doc:id="c2aa7c19-ad2f-45c9-87e1-65704f9d10f2" directoryPath="C:\s3uploadpoc\sample"/>
+		<set-variable value="#[sizeOf(payload)]" doc:name="Set Variable" doc:id="8acc1e85-d626-4868-aa0e-ded95e7b3aae" variableName="groupsize"/>
+		<logger level="INFO" doc:name="Logger" doc:id="eadeff85-9376-4fae-addf-a899c4ba7e58" message="  NUMBER OF Files: #[sizeOf(payload)]"/>
+		<foreach doc:name="For Each" doc:id="43d2a654-3090-4445-9145-ff2598660af1" collection="#[payload]">
+			<async doc:name="Async" doc:id="72f021d4-ea90-4572-9f9c-7e9c0819c0ef" >
+				<logger level="INFO" doc:name="Logger" doc:id="db1d9c5d-ef69-42a3-acf5-22cd00ce866b" message="file details are : #[message.attributes.path]" />
+				<flow-ref doc:name="Flow Reference" doc:id="190ca7e4-481a-4aa7-bb76-829ef7da6c9d" name="s3uploadpoc-subflow"/>
+				<aggregators:group-based-aggregator name="Aggregator" doc:name="aggregator" doc:id="80f0b52d-8a0e-4f68-a903-360317d6f01e" groupSize="#[vars.groupsize]">
+				<aggregators:incremental-aggregation>
+					<logger level="INFO" doc:name="Logger" doc:id="7c758540-a6f8-486b-8a1d-18fdabb74d90" message="Incremental size #[sizeOf(payload)]" />
+				</aggregators:incremental-aggregation>
+				<aggregators:aggregation-complete>
+						<ee:transform doc:name="Transform Message" doc:id="9b65fb31-7665-45e4-b7cf-5fa01e6e17c1" >
+							<ee:message >
+								<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+							</ee:message>
+						</ee:transform>
+						<logger level="INFO" doc:name="Logger" doc:id="eb848f43-6822-4ac2-b77c-7d6cc89f7465" message="final transformed output : #[payload]"/>
+						<s3:complete-multipart-upload doc:name="Complete_upload" doc:id="cd9554dc-6d43-4ac8-8488-17d677a3785f" config-ref="Amazon_S3_Configuration" bucketName="s3mutilpartupload" key="test.csv" uploadId="#[vars.uploadID]" />
+						<ee:transform doc:name="Transform Message" doc:id="25bc1504-069d-49f7-9a66-cc1b6e5af9e6">
+							<ee:message>
+								<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+							</ee:message>
+						</ee:transform>
+						<logger level="INFO" doc:name="Logger" doc:id="de24df60-77e0-4222-a684-c057d05619a0" message="s3 upload completed . upload details : #[payload]"/>
+						<logger level="INFO" doc:name="Logger" doc:id="fa3fe23d-07e0-4a66-b562-e9956aaf0769" message="TimeTaken by s3upload process : #[now() - vars.entryTime]"/>
+				</aggregators:aggregation-complete>
+			</aggregators:group-based-aggregator>
+			</async>
+		</foreach>
+		<ee:transform doc:name="Transform Message" doc:id="1df4b5f3-9a3a-4c36-aaee-88c590961c9e" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	status:"processing s3 upload request"
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="6cc429a9-7df6-4c8e-8a09-f39c8eb3f0fb">
+			<logger level="INFO" doc:name="Logger" doc:id="b89a3c36-74ce-4c21-830f-fb42c3ea2f28" message="error block #[error]" />
+		</on-error-propagate>
+		</error-handler>
+	</flow>
+	<flow name="s3uploadpoc-subflow" doc:id="ad5caf65-d818-4acb-b594-b37fe90a3bf9" >
+		<logger level="INFO" doc:name="Logger" doc:id="0f84d8ee-f5f4-4410-bdb6-93ecc0c20b89" message='calling upload sub-flow for  filepartname : #[attributes.fileName]...'/>
+		<set-variable value="#[attributes.fileName]" doc:name="Set Variable" doc:id="2dbed991-67cb-4ec6-88e4-f9b1e3d60a6a" variableName="filePartName"/>
+		<set-variable value="#[attributes.path]" doc:name="Set Variable" doc:id="02f0d65a-0f4f-4a42-a0bb-63d9a26ef54f" variableName="filePartPath"/>
+		<ee:transform doc:name="Transform Message" doc:id="eb397b21-3adb-42b3-83cc-3266f597c3f9" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="partID" ><![CDATA[%dw 2.0
+output application/java
+---
+{
+	value:attributes.fileName splitBy "."
+}[0][1]]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="43846845-d943-41f2-835f-70a54d7e2bb2" message="partID is : #[vars.partID]"/>
+		<file:read doc:name="Read" doc:id="440e8fea-d2cb-40db-89bf-5be6323c8d47" path="#[attributes.path]"/>
+		<logger level="INFO" doc:name="Logger" doc:id="2795187a-9566-4da0-ad31-649a71f58378" message="read file completed for #[attributes.path]"/>
+		<s3:upload-part partSize="#[attributes.size]" doc:name="Upload part" doc:id="7133086f-17b4-4943-af89-6a6c4a0ff9cd" config-ref="Amazon_S3_Configuration" bucketName="s3mutilpartupload" key="test.csv" uploadId="#[vars.uploadID]" partNumber="#[vars.partID]"/>
+		<logger level="INFO" doc:name="Logger" doc:id="8d1a0fbd-8926-4512-a4ce-6e13e11d3442" message="upload part completed for part . #[vars.filePartName]"/>
+		<ee:transform doc:name="Transform Message" doc:id="2c004100-3b15-45b8-9f25-ec7d312e5f86" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<file:move doc:name="Move" doc:id="3e0c3985-e862-4a85-a223-957ff8c38bc7" targetPath='C:\s3uploadpoc\processed' sourcePath="#[vars.filePartPath]"/>
+		<logger level="INFO" doc:name="Logger" doc:id="5c45638f-f2f8-4b84-959d-dd993e15b9fb" message="#[vars.filePartName] moved to processed folder"/>
+		
+	
+</flow>
+</mule>
