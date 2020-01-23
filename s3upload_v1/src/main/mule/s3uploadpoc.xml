@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:aggregators="http://www.mulesoft.org/schema/mule/aggregators" xmlns:validation="http://www.mulesoft.org/schema/mule/validation"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:java="http://www.mulesoft.org/schema/mule/java" xmlns:batch="http://www.mulesoft.org/schema/mule/batch" xmlns:s3="http://www.mulesoft.org/schema/mule/s3" xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/s3 http://www.mulesoft.org/schema/mule/s3/current/mule-s3.xsd
+http://www.mulesoft.org/schema/mule/batch http://www.mulesoft.org/schema/mule/batch/current/mule-batch.xsd
+http://www.mulesoft.org/schema/mule/java http://www.mulesoft.org/schema/mule/java/current/mule-java.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/validation http://www.mulesoft.org/schema/mule/validation/current/mule-validation.xsd
+http://www.mulesoft.org/schema/mule/aggregators http://www.mulesoft.org/schema/mule/aggregators/current/mule-aggregators.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="6082fe21-349d-4c64-bde9-d32c82852177" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<s3:config name="Amazon_S3_Configuration" doc:name="Amazon S3 Configuration" doc:id="c5f32678-7acd-49b0-a662-ea8488aacd45" >
+		<s3:basic-connection accessKey="AKIAWDXRWW3OHBRINHMD" secretKey="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" region="US_EAST_2" maxConnections="100"/>
+	</s3:config>
+	<flow name="s3uploadpocFlow-Http" doc:id="f6f18e39-9f36-4556-b637-ad62ae129a85" >
+		<http:listener doc:name="Listener" doc:id="04644611-9688-4839-a8e3-bdcb3552c2aa" config-ref="HTTP_Listener_config" path="/s3upload"/>
+		<file:list doc:name="List" doc:id="540eafc8-dd9c-49d5-ba30-3960efcb68df" directoryPath="/Users/Milan/mulesofttest/source"/>
+		<foreach doc:name="For Each" doc:id="fec71ac0-619e-4478-a3f7-a670444de26a" collection="payload">
+			<flow-ref doc:name="Flow Reference" doc:id="18e90f1b-6309-4959-9657-89766242bedf" name="s3uploadpocFlow"/>
+		</foreach>
+		<ee:transform doc:name="Transform Message" doc:id="e1b5e294-f04a-451c-9e20-a11f18d16385" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+
+{
+	status:"s3 upload process started"
+	
+}]]></ee:set-payload>
+			</ee:message>
+			<ee:variables >
+			</ee:variables>
+		</ee:transform>
+	</flow>
+	<flow name="s3uploadpocFlow" doc:id="d7cac341-eb0e-474d-87ac-f877fa1f7ba5" >
+		<set-payload value="#[{}]" doc:name="Set Payload" doc:id="9835ca1f-5e87-4f28-a4d3-c1e597650342" />
+		<set-variable value="#[now()]" doc:name="Set Variable" doc:id="21063c8b-d26d-4160-bac7-2c4db31251c6" variableName="entryTime"/>
+		<set-variable value="#[attributes.path]" doc:name="Set Variable" doc:id="77a9d23f-7003-4ea0-a209-4e92bb5200f4" variableName="filepath"/>
+		<set-variable value="#[attributes.fileName]" doc:name="Set Variable" doc:id="bcacefc5-8c18-476b-b34f-c3660c2ee7f8" variableName="filename"/>
+		<set-variable value="#[correlationId ++ '---' ++ uuid()]" doc:name="Set Variable" doc:id="dce675f9-d2d0-44bc-a6c4-bb1ba18a97db" variableName="recordID"/>
+		<ee:transform doc:name="Transform Message" doc:id="4849346b-1a10-4467-90bf-6a466e76cb4b" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="fileDetails" ><![CDATA[%dw 2.0
+output application/java
+
+var fileVar  = vars.filename splitBy "."
+---
+{
+	fileNamePrefix: fileVar[0] ,
+	fileNameExtension: fileVar[1]
+}]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<set-variable value='#["/Users/Milan/mulesofttest/staging/" ++ vars.fileDetails.fileNamePrefix]' doc:name="Set Variable" doc:id="90fb1fda-f863-40a2-b337-b957b7c70af7" variableName="tempFolderPath" />
+		<file:create-directory doc:name="Create directory" doc:id="b2b90ccc-aeac-4cc0-8139-b668d2d855a0" directoryPath="#[vars.tempFolderPath]"/>
+		<logger level="INFO" doc:name="Logger" doc:id="fdee7239-5712-4cbf-9e92-ccc92bf61b4e" message="file details are : #[vars.fileDetails]"/>
+		<java:new doc:name="New" doc:id="d2f0c918-6b12-4c2c-a9c5-ae2c6841edff" class="FileSplit" constructor="FileSplit()" target="fileSplit"/>
+		<java:invoke doc:name="Invoke" doc:id="77f7e603-9610-4484-90d1-1b0db2e968f0" instance="#[vars.fileSplit]" class="FileSplit" method='splitFile(String,String,Integer,String,String)'>
+			<java:args ><![CDATA[#[{
+       inputFilePath : vars.filepath,
+        stagingFilePath : vars.tempFolderPath,
+        bytesPerSplit : 5242880,
+        filePrefix : vars.fileDetails.fileNamePrefix,
+        fileExtension : vars.fileDetails.fileNameExtension
+        
+        }]]]></java:args>
+		</java:invoke>
+		<s3:initiate-multipart-upload doc:name="initiate multipart upload" doc:id="ee276de5-87c3-469b-8f8b-9386d33c67c5" config-ref="Amazon_S3_Configuration" key="#[vars.filename]" acl="BUCKET_OWNER_FULL_CONTROL" bucketName="2020testbucket2020"/>
+		<set-variable value="#[payload]" doc:name="Set Variable" doc:id="d9d4420f-46e0-4ac9-824e-d829e92e8dd8" variableName="uploadID"/>
+		<file:list doc:name="List" doc:id="c2aa7c19-ad2f-45c9-87e1-65704f9d10f2" directoryPath='#[vars.tempFolderPath]'>
+			<file:matcher directories="EXCLUDE" symLinks="EXCLUDE" />
+		</file:list>
+		<set-variable value="#[sizeOf(payload)]" doc:name="Set Variable" doc:id="8acc1e85-d626-4868-aa0e-ded95e7b3aae" variableName="groupsize"/>
+		<logger level="INFO" doc:name="Logger" doc:id="eadeff85-9376-4fae-addf-a899c4ba7e58" message="  NUMBER OF Files: #[sizeOf(payload)]"/>
+		<foreach doc:name="For Each" doc:id="43d2a654-3090-4445-9145-ff2598660af1" collection="#[payload]">
+			<async doc:name="Async" doc:id="72f021d4-ea90-4572-9f9c-7e9c0819c0ef" >
+				<logger level="INFO" doc:name="Logger" doc:id="db1d9c5d-ef69-42a3-acf5-22cd00ce866b" message="file details are : #[message.attributes.path]" />
+				<flow-ref doc:name="Flow Reference" doc:id="190ca7e4-481a-4aa7-bb76-829ef7da6c9d" name="s3uploadpoc-subflow"/>
+				<aggregators:group-based-aggregator name="Aggregator" doc:name="aggregator" doc:id="80f0b52d-8a0e-4f68-a903-360317d6f01e" groupSize="#[vars.groupsize]" groupId="#[vars.recordID]">
+				<aggregators:incremental-aggregation>
+					<logger level="INFO" doc:name="Logger" doc:id="7c758540-a6f8-486b-8a1d-18fdabb74d90" message="Incremental size #[sizeOf(payload)]" />
+				</aggregators:incremental-aggregation>
+				<aggregators:aggregation-complete>
+						<ee:transform doc:name="Transform Message" doc:id="9b65fb31-7665-45e4-b7cf-5fa01e6e17c1" >
+							<ee:message >
+								<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+							</ee:message>
+						</ee:transform>
+						<logger level="INFO" doc:name="Logger" doc:id="eb848f43-6822-4ac2-b77c-7d6cc89f7465" message="final transformed output : #[payload]"/>
+						<s3:complete-multipart-upload doc:name="Complete_upload" doc:id="cd9554dc-6d43-4ac8-8488-17d677a3785f" config-ref="Amazon_S3_Configuration" bucketName="2020testbucket2020" key="#[vars.filename]" uploadId="#[vars.uploadID]" />
+						<ee:transform doc:name="Transform Message" doc:id="25bc1504-069d-49f7-9a66-cc1b6e5af9e6">
+							<ee:message>
+								<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+							</ee:message>
+						</ee:transform>
+						<logger level="INFO" doc:name="Logger" doc:id="de24df60-77e0-4222-a684-c057d05619a0" message="s3 upload completed . upload details : #[payload]"/>
+						<logger level="INFO" doc:name="Logger" doc:id="fa3fe23d-07e0-4a66-b562-e9956aaf0769" message="TimeTaken by s3upload process : #[now() - vars.entryTime]"/>
+						<file:delete doc:name="Delete" doc:id="545ed543-cffa-4d94-9445-f7b7dc1f516c" path='#["/Users/Milan/mulesofttest/staging/" ++ vars.fileDetails.fileNamePrefix]'/>
+						<file:move doc:name="Move" doc:id="18890906-c5c7-4304-bf64-96c2bd9d5deb" sourcePath='#["/Users/Milan/mulesofttest/source/" ++ vars.fileDetails.fileNamePrefix ++ "." ++ vars.fileDetails.fileNameExtension]' targetPath='#["/Users/Milan/mulesofttest/processed/"]' createParentDirectories="false" overwrite="true"/>
+				</aggregators:aggregation-complete>
+			</aggregators:group-based-aggregator>
+			</async>
+		</foreach>
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="6cc429a9-7df6-4c8e-8a09-f39c8eb3f0fb">
+			<logger level="INFO" doc:name="Logger" doc:id="b89a3c36-74ce-4c21-830f-fb42c3ea2f28" message="error block #[error]" />
+		</on-error-propagate>
+		</error-handler>
+	</flow>
+	<flow name="s3uploadpoc-subflow" doc:id="ad5caf65-d818-4acb-b594-b37fe90a3bf9" >
+		<logger level="INFO" doc:name="Logger" doc:id="0f84d8ee-f5f4-4410-bdb6-93ecc0c20b89" message='calling upload sub-flow for  filepartname : #[attributes.fileName]...'/>
+		<set-variable value="#[attributes.fileName]" doc:name="Set Variable" doc:id="2dbed991-67cb-4ec6-88e4-f9b1e3d60a6a" variableName="filePartName"/>
+		<set-variable value="#[attributes.path]" doc:name="Set Variable" doc:id="02f0d65a-0f4f-4a42-a0bb-63d9a26ef54f" variableName="filePartPath"/>
+		<ee:transform doc:name="Transform Message" doc:id="eb397b21-3adb-42b3-83cc-3266f597c3f9" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="partID" ><![CDATA[%dw 2.0
+output application/java
+---
+{
+	value:attributes.fileName splitBy "."
+}[0][2]]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="43846845-d943-41f2-835f-70a54d7e2bb2" message="partID is : #[vars.partID]"/>
+		<file:read doc:name="Read" doc:id="440e8fea-d2cb-40db-89bf-5be6323c8d47" path="#[attributes.path]"/>
+		<logger level="INFO" doc:name="Logger" doc:id="2795187a-9566-4da0-ad31-649a71f58378" message="read file completed for #[attributes.path]"/>
+		<s3:upload-part partSize="#[attributes.size]" doc:name="Upload part" doc:id="7133086f-17b4-4943-af89-6a6c4a0ff9cd" config-ref="Amazon_S3_Configuration" bucketName="2020testbucket2020" key="#[vars.filename]" uploadId="#[vars.uploadID]" partNumber="#[vars.partID]"/>
+		<logger level="INFO" doc:name="Logger" doc:id="8d1a0fbd-8926-4512-a4ce-6e13e11d3442" message="upload part completed for part . #[vars.filePartName]"/>
+		<ee:transform doc:name="Transform Message" doc:id="2c004100-3b15-45b8-9f25-ec7d312e5f86" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="5c45638f-f2f8-4b84-959d-dd993e15b9fb" message="#[vars.filePartName] moved to processed folder"/>
+		
+	
+</flow>
+</mule>
