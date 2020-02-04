@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:vm="http://www.mulesoft.org/schema/mule/vm" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/vm http://www.mulesoft.org/schema/mule/vm/current/mule-vm.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="c7252a3c-aaa2-45e2-9ff8-1087d4265e46" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<vm:config name="VM_Config" doc:name="VM Config" doc:id="c11be48c-d5b0-4a54-b147-7a8896a1272e" >
+		<vm:connection />
+		<vm:queues >
+			<vm:queue queueName="mytestqueue" />
+		</vm:queues>
+	</vm:config>
+	<flow name="testmycodeFlow1" doc:id="93d57737-7eed-4e67-aa83-90cdcc73c4fc">
+		<vm:listener queueName="mytestqueue" doc:name="Listener" doc:id="ccc054d1-ccc8-464e-ba45-5745af82a3c6" config-ref="VM_Config"/>
+		<logger level="INFO" doc:name="Logger" doc:id="3a9e936f-3127-4c64-acb9-88aea02e5309" message="#[payload]" />
+	</flow>
+	<flow name="testmycodeFlow" doc:id="532be8e0-348d-47ec-ae4a-79fe515bbae6" >
+		<http:listener doc:name="Listener" doc:id="e49bba35-d61e-47e2-9785-34297a805855" config-ref="HTTP_Listener_config" path="/testmycode"/>
+		<set-variable value="#[{ 'name' : &quot;Ana&quot;, 'office' : 'BA' }]" doc:name="Set Variable" doc:id="0c0368b5-ded9-4e65-9dfe-283a95bec329" variableName="s3UploadMessage"/>
+		<ee:transform doc:name="Transform Message" doc:id="d9280a8a-8352-4f48-b53d-53e6bee3ec76" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="s3UploadMessage" ><![CDATA[%dw 2.0
+output application/java
+---
+	vars.s3UploadMessage mapObject (value,key) ->
+    {
+    	    (if (key ~= "name") (key): value  else (key): "changed")
+    }]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="f09168a6-3fad-4a5c-811c-d01b2eb2871d" message="#[vars.s3UploadMessage]"/>
+		<vm:publish doc:name="Publish" doc:id="bfc23b57-b7ef-4ae4-93eb-17d15ed4b886" config-ref="VM_Config" queueName="mytestqueue">
+			<vm:content ><![CDATA[#[vars.s3UploadMessage]]]></vm:content>
+		</vm:publish>
+	</flow>
+</mule>
