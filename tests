@@ -1,0 +1,14 @@
+var tempArray = vars.filename splitBy "."
+
+var prefixArray = tempArray filter ((value, index) -> (index < sizeOf (tempArray) - 1))
+
+
+fileNamePrefix : prefixArray joinBy ".",
+
+fileNameExtension: tempArray[sizeOf (tempArray) - 1],
+
+var tempVar = payload.path splitBy prop('miln/')
+
+var tempArray1 = tempVar[1] splitBy "/"
+
+var folderArray = tempArray1 filter ((value, index) -> (index < sizeOf (tempArray1) - 1))
