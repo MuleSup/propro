@@ -1,0 +1,240 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:vm="http://www.mulesoft.org/schema/mule/vm" xmlns:aggregators="http://www.mulesoft.org/schema/mule/aggregators"
+	xmlns:validation="http://www.mulesoft.org/schema/mule/validation"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:java="http://www.mulesoft.org/schema/mule/java" xmlns:batch="http://www.mulesoft.org/schema/mule/batch" xmlns:s3="http://www.mulesoft.org/schema/mule/s3" xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/s3 http://www.mulesoft.org/schema/mule/s3/current/mule-s3.xsd
+http://www.mulesoft.org/schema/mule/batch http://www.mulesoft.org/schema/mule/batch/current/mule-batch.xsd
+http://www.mulesoft.org/schema/mule/java http://www.mulesoft.org/schema/mule/java/current/mule-java.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/validation http://www.mulesoft.org/schema/mule/validation/current/mule-validation.xsd
+http://www.mulesoft.org/schema/mule/aggregators http://www.mulesoft.org/schema/mule/aggregators/current/mule-aggregators.xsd
+http://www.mulesoft.org/schema/mule/vm http://www.mulesoft.org/schema/mule/vm/current/mule-vm.xsd">
+	<!-- <http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="9c871bc3-a728-4c67-84dc-508e465bf956" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<s3:config name="Amazon_S3_Configuration" doc:name="Amazon S3 Configuration" doc:id="0058b41a-2cbb-4be4-8ae0-f6026fa67b2a" >
+		<s3:basic-connection accessKey="" secretKey="" region="AP_SOUTH_1"/>
+	</s3:config>
+	<file:config name="File_Config" doc:name="File Config" doc:id="c5baccff-c8a9-4ac1-a440-5907bc8db2a0" >
+		<file:connection workingDir="C:\s3uploadpoc\pickFiles" />
+	</file:config> -->
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="02ba59fb-e456-47d6-93e9-df032baf0085" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<file:config name="File_Config" doc:name="File Config" doc:id="75af4485-0b8f-4847-9309-24c7fdae8902" >
+		<file:connection />
+	</file:config>
+	<s3:config name="Amazon_S3_Configuration" doc:name="Amazon S3 Configuration" doc:id="86050059-c3ad-41d1-9740-ca7805adea83" >
+		<s3:basic-connection accessKey="AKIAJSHYGOAWUTMM24SQ" secretKey="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" region="ap_south_1" />
+	</s3:config>
+	<file:config name="File_Config1" doc:name="File Config" doc:id="dd8f10a1-5431-4353-b564-5d275cac41b1" >
+		<file:connection workingDir="/Users/Milan/mulesofttest/source" />
+	</file:config>
+	<vm:config name="VM_Config" doc:name="VM Config" doc:id="76285b33-bbaa-44aa-bf12-12bcf84eef8e" >
+		<vm:connection />
+		<vm:queues >
+			<vm:queue queueName="filemessage" />
+		</vm:queues>
+	</vm:config>
+	<flow name="listenToNewFilesFLow" doc:id="58eeac94-062f-46d5-a467-8778dd1f6654" >
+		<file:listener doc:name="On New or Updated File" doc:id="a78db855-8dd5-4336-b163-12628f848fa2" config-ref="File_Config1" watermarkMode="MODIFIED_TIMESTAMP" timeBetweenSizeCheck="1" timeBetweenSizeCheckUnit="SECONDS">
+			<scheduling-strategy >
+				<fixed-frequency />
+			</scheduling-strategy>
+		</file:listener>
+		<vm:publish doc:name="Publish" doc:id="0517ac08-eb66-4b4a-8fb7-9cc6bfb814e0" config-ref="VM_Config" queueName="filemessage" timeout="1">
+			<vm:content ><![CDATA[#[{filename : attributes.fileName , path : attributes.path}]]]></vm:content>
+		</vm:publish>
+		<ee:transform doc:name="Transform Message" doc:id="e57bb023-2029-40e5-b97f-d56571a24bd2" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+
+{
+	status:"s3 upload process started"
+	
+}]]></ee:set-payload>
+			</ee:message>
+			<ee:variables >
+			</ee:variables>
+		</ee:transform>
+	</flow>
+	<flow name="splitFileFlow" doc:id="05908fb9-c1df-4bd8-bfda-473aac7b782f" >
+		<vm:listener queueName="filemessage" doc:name="Listener" doc:id="869b1437-e17e-4a71-aa31-4f3f24beb677" config-ref="VM_Config" numberOfConsumers="1" timeout="0"/>
+		<logger level="INFO" doc:name="Logger" doc:id="097e4609-b5a9-4aec-b409-70130555a490" message="#[payload.path]"/>
+		<set-variable value="#[now()]" doc:name="Set Entry Time" doc:id="d1e46b1b-46a8-4f62-bcaa-e73fbc149be7" variableName="entryTime" />
+		<set-variable value="#[payload.path]" doc:name="Set File Path" doc:id="2d17e69f-481b-474f-9e8d-c46e3b0b7dc0" variableName="filepath"/>
+		<set-variable value="#[payload.filename]" doc:name="Set File Name" doc:id="354a264e-c616-48cc-b9ca-fa8577d83473" variableName="filename"/>
+		<set-variable value="#[correlationId ++ '---' ++ uuid()]" doc:name="Set Record ID" doc:id="4a02da85-1bb4-4854-a146-d902769f2264" variableName="recordID"/>
+		<ee:transform doc:name="Transform Message" doc:id="21220fe8-baaa-4369-a18b-200c8e787b63" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="fileDetails" ><![CDATA[%dw 2.0
+output application/java
+import * from dw::core::Strings
+var tempVar = vars.filepath splitBy "milan/"
+var tempPathArray = tempVar[1] splitBy "/"
+var folderArray = tempPathArray filter ((value, index) -> (index < sizeOf (tempPathArray) - 1))
+var tempFileArray = vars.filename splitBy "."
+var prefixArray = tempFileArray filter ((value, index) -> (index < sizeOf (tempFileArray) - 1))
+
+
+---
+{
+	fileNamePrefix : prefixArray joinBy ".",
+	fileNameExtension: tempFileArray[sizeOf(tempFileArray) -1],
+	folderName :  folderArray joinBy ".",
+}]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="87621b47-3eb6-47eb-a4b6-f4397ae9c69f" message="#[vars.fileDetails]"/>
+		<set-variable value='#["/Users/Milan/mulesofttest/staging/" ++ vars.fileDetails.fileNamePrefix]' doc:name="Set Variable" doc:id="a9995b2f-809b-4655-b7b5-522177a36f2a" variableName="tempFolderPath" />
+		<set-variable value="#[vars.fileDetails.folderName]" doc:name="Set Variable" doc:id="b229908b-2d93-48bd-8e44-a9ec8cae48b1" variableName="foldername"/>
+		<file:create-directory doc:name="Create directory" doc:id="47df1853-e59a-444c-a341-bc552343374b" directoryPath="#[vars.tempFolderPath]" config-ref="File_Config"/>
+		<java:new doc:name="New" doc:id="a801743a-a5b3-4a3d-b3c1-a3d34e0638fa" class="s3withdirectory.FileSplit" constructor="FileSplit()" target="fileSplit"/>
+		<java:invoke doc:name="Invoke" doc:id="77aa71c0-7357-49c7-9bf4-39c50ae03867" instance="#[vars.fileSplit]" class="s3withdirectory.FileSplit" method='splitFile(String,String,Integer,String,String)'>
+			<java:args ><![CDATA[#[{
+       inputFilePath : vars.filepath,
+        stagingFilePath : vars.tempFolderPath,
+        bytesPerSplit : 5242880,
+        filePrefix : vars.fileDetails.fileNamePrefix,
+        fileExtension : vars.fileDetails.fileNameExtension
+        
+        }]]]></java:args>
+		</java:invoke>
+		<logger level="INFO" doc:name="Logger" doc:id="1e5dfcd2-f778-4f7a-8497-6ac00e80ec5e" message="file split successful . "/>
+		<s3:initiate-multipart-upload doc:name="initiate multipart upload" doc:id="127a1712-cfbd-4779-b2a1-ef06e15e90f5" config-ref="Amazon_S3_Configuration" bucketName="muletestmilan" key='#[vars.fileDetails.folderName ++ "/" ++ vars.filename]' acl="BUCKET_OWNER_FULL_CONTROL" />
+		<set-variable value="#[payload]" doc:name="Set Variable" doc:id="5b57380b-669b-45f2-81e7-e7cf696478aa" variableName="uploadID"/>
+		<file:list doc:name="List" doc:id="b20b3ecd-1062-477e-a183-b4ee7b37a114" directoryPath="#[vars.tempFolderPath]" config-ref="File_Config" />
+		<set-variable value="#[sizeOf(payload)]" doc:name="Set Variable" doc:id="9052d22d-b1d2-4d72-8c7c-762d2a2f81f6" variableName="groupsize"/>
+		<ee:transform doc:name="Transform Message" doc:id="56c522f4-33a8-4a98-b939-238e630ab142" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="fileData" ><![CDATA[%dw 2.0
+output application/java
+---
+{
+	filedetails:payload.attributes map ((file,index) ->{
+		folderName :  vars.fileDetails.folderName,
+		filePrefix : vars.fileDetails.fileNamePrefix , 
+		filePath:file.path,
+		fileName:file.fileName
+	})
+}]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="babd4cc8-4e19-4711-a89d-fbad4bd61d20" message="  NUMBER OF File chunks are : #[sizeOf(payload)] , file details are : #[vars.fileData]"/>
+		<set-payload doc:name="Set Payload" doc:id="dcac0ae8-8d86-4f2b-befa-411df1820f58" value="#[vars.fileData.filedetails]"/>
+		<flow-ref doc:name="Flow Reference" doc:id="bb1d4f6d-0877-4148-b350-9aaea97da2e0" name="initiateBatchJob"/>
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="caa9ad46-2678-40eb-8dd8-cce265510daf">
+			<logger level="INFO" doc:name="Logger" doc:id="fc0aee87-b56f-4ac5-813d-06288eb3fa90" message="error block #[error]" />
+		</on-error-propagate>
+		</error-handler>
+	</flow>
+	<flow name="initiateBatchJob" doc:id="b09a7628-3541-4603-b9d1-4c189401b8d0">
+		<batch:job jobName="s3uploadpocBatch_Job1" doc:id="0c25c9e1-b983-433d-a2d4-b7a43f927d0d" blockSize="1" maxConcurrency="2">
+			<batch:process-records>
+				<batch:step name="Batch_Step" doc:id="587f5e27-7db0-41fa-a0e2-d661939c1ed8">
+					<logger level="INFO" doc:name="Logger" doc:id="dc66c7c5-1c41-41cb-a27b-9c45cf156b99" message="#[payload.filedetails]"/>
+					<flow-ref doc:name="Flow Reference" doc:id="6ec27664-42b6-4dda-90d2-079a2143ffda" name="uploadSinglePartFlow"/>
+					<aggregators:group-based-aggregator name="Aggregator1" doc:name="Group based aggregator" doc:id="5e33997d-4773-429d-91c9-8162dc990cc0" groupId="#[vars.recordID]" groupSize="#[vars.groupsize]">
+						<aggregators:incremental-aggregation>
+							<logger level="INFO" doc:name="Logger" doc:id="c07761f7-4197-4f7b-ab4e-af64538d2c58" message="Incremental size #[sizeOf(payload)]" />
+						</aggregators:incremental-aggregation>
+						<aggregators:aggregation-complete>
+							<ee:transform doc:name="Transform Message" doc:id="e5e90705-1d92-437a-a234-811646152634">
+							<ee:message>
+								<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+							</ee:message>
+						</ee:transform>
+							<logger level="INFO" doc:name="Logger" doc:id="435fffdb-fb88-41e0-a7e0-fc1f4ef5e8a9" message="payload is : #[payload]" />
+							<s3:complete-multipart-upload doc:name="Complete_upload" doc:id="d2838e58-48c0-441b-8ac3-6fb6ba0e0243" config-ref="Amazon_S3_Configuration" bucketName="muletestmilan" key='#[vars.foldername ++ "/" ++ vars.filename]' uploadId="#[vars.uploadID]" />
+							<ee:transform doc:name="Transform Message" doc:id="d2efc579-3ea8-48e9-bf34-55afdb95d785">
+								<ee:message>
+									<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+								</ee:message>
+							</ee:transform>
+							<logger level="INFO" doc:name="Logger" doc:id="6315b35b-9dc4-4901-986d-4a394d9b254d" message="s3 upload completed . upload details : #[payload]" />
+							<logger level="INFO" doc:name="Logger" doc:id="172e69e5-1543-43b4-bcaf-5c57b86fe736" message='#["TimeTaken by s3upload process :" ++ (now() - vars.entryTime)]' />
+						</aggregators:aggregation-complete>
+					</aggregators:group-based-aggregator>
+				
+</batch:step>
+			</batch:process-records>
+			<batch:on-complete>
+				<logger level="INFO" doc:name="Logger" doc:id="2dfdae93-692e-4113-a121-1058389b2741" message="batch job completed" />
+			</batch:on-complete>
+		</batch:job>
+		<logger level="INFO" doc:name="Logger" doc:id="9e6d06f1-8c09-4d48-8bcc-afede211c83d" message="batch flow completed." />
+		<error-handler>
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="143342d0-8560-462a-97fc-26ac496b3bd2">
+				<logger level="INFO" doc:name="Logger" doc:id="c4d5d0ba-a9b3-4395-b59c-dcdb44c9e3fd" message="error occured in batch mode : #[error]" />
+			</on-error-propagate>
+		</error-handler>
+	
+</flow>
+	<sub-flow name="uploadSinglePartFlow" doc:id="69fda355-c34f-4fb6-9851-d0bcf073146c" >
+		<set-variable value="#[payload.folderName]" doc:name="Set folder Name" doc:id="fea8af0a-3227-4359-b5e9-7bc34743d779" variableName="foldername"/>
+		<set-variable value="#[payload.filePrefix]" doc:name="Set File Prefix" doc:id="66184a93-4d54-48fc-a9b9-5b31e697ab06" variableName="fileprefix"/>
+		<set-variable value="#[payload.fileName]" doc:name="Set FilePart Name" doc:id="8203e35d-964f-404d-a079-c0ec3b1480db" variableName="filePartName"/>
+		<set-variable value="#[payload.filePath]" doc:name="Set File Path" doc:id="bfd7fb77-0d6c-4357-bda1-b06799580c83" variableName="filePartPath"/>
+		<logger level="INFO" doc:name="Logger" doc:id="ec7ca1f7-2228-4763-bae5-5e2afaef4d81" message="#[payload.fileName]"/>
+		<ee:transform doc:name="Transform Message" doc:id="6f5f9cdc-9de5-4f59-adb4-97acdda88902" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="partID" ><![CDATA[%dw 2.0
+output application/java
+---
+{
+	value:payload.fileName splitBy "."
+}[0][sizeOf(payload.fileName splitBy ".") - 2]]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<logger level="DEBUG" doc:name="Logger" doc:id="0cc60996-5bf1-4bee-8c84-d20df6936300" message="partID is : #[vars.partID]"/>
+		<file:read doc:name="Read" doc:id="152b3d7b-290d-47c7-992c-58f50ff9b01e" path="#[vars.filePartPath]"/>
+		<logger level="DEBUG" doc:name="Logger" doc:id="aceb0a8d-d748-4847-8a01-a8a8d05c8c77" message="read file completed for #[vars.filePartName]"/>
+		<until-successful maxRetries="2" doc:name="Until Successful" doc:id="1c0f4097-ae75-46f3-aeba-94a7e701bb00" millisBetweenRetries="5000">
+			<s3:upload-part partSize="#[attributes.size]" doc:name="Upload part" doc:id="b3d08227-3182-40fe-9b76-125c97b9e5c2" config-ref="Amazon_S3_Configuration" bucketName="muletestmilan" key='#[vars.foldername ++ "/" ++ vars.filename]' uploadId="#[vars.uploadID]" partNumber="#[vars.partID]" />
+		</until-successful>
+		<ee:transform doc:name="Transform Message" doc:id="c370cb48-0a1f-48c2-8dec-c249001fc019" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="645352de-cb2e-4ebd-8c16-b7be93aada35" message="upload part completed for part . #[vars.filePartName] with payload : #[payload]"/>
+		<ee:transform doc:name="Transform Message" doc:id="4e01fcec-c7a3-4725-85e6-7a32076e91ca" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="etagData" ><![CDATA[%dw 2.0
+output application/java
+---
+payload]]></ee:set-variable>
+			</ee:variables>
+		
+</ee:transform>
+		<file:delete doc:name="Delete" doc:id="7ca26ec6-3d77-4d9f-98a5-461e2f77484f" path="#[vars.filePartPath]"/>
+		<logger level="INFO" doc:name="Logger" doc:id="99f62a87-e7ac-4e86-984d-bbdd668fb00d" message="#[vars.filePartName] moved to processed folder"/>
+		<set-payload value="#[vars.etagData]" doc:name="Set Payload" doc:id="49a94852-bec3-4b3f-b3fe-339d9783d204" />
+		
+	
+
+</sub-flow>
+</mule>
