@@ -1,0 +1,151 @@
+public void splitFile(String inputFilePath, String stagingFilePath, Integer bytesPerSplit, String filePrefix, String fileExtension) throws Exception
+
+    {
+
+
+System.out.println("Milan Start");
+
+System.out.println(inputFilePath);
+
+System.out.println(stagingFilePath);
+
+System.out.println(bytesPerSplit);
+
+System.out.println(filePrefix);
+
+System.out.println(fileExtension);
+
+
+
+        
+
+//in case the bytesPerSplit argument has not been defined
+
+if(null == bytesPerSplit)
+
+{
+
+bytesPerSplit =  500*1024*1024;
+
+}
+
+
+
+        //get the file name from the inputFilePath
+
+        Path path  =  Paths.get(inputFilePath);
+
+        System.out.println("After Path");
+
+        Path fName = path.getFileName();
+
+        System.out.println("After getFileName");
+
+
+      //read the source file from the input file path
+
+        RandomAccessFile raf = new RandomAccessFile(inputFilePath, "r");
+
+        System.out.println("After open file");
+
+
+        long sourceSize = raf.length();  //the size in bytes for the input source file
+
+        System.out.println(sourceSize);
+
+
+        int numSplits = 1;   //default value of number of file chunks to be created
+
+
+        //residual bytes for a file determining the size of the last chunk if the source file size is not an exact multiple of the bytesPerSplit
+
+        long remainingBytes = 0;
+
+
+
+        //split only if the source file size is more than the bytesPerSplit
+
+        if(sourceSize >  bytesPerSplit)
+
+        {
+
+        numSplits = (int)Math.floor(sourceSize / bytesPerSplit);
+
+        remainingBytes = sourceSize - numSplits*bytesPerSplit;
+
+        }
+
+        
+
+        System.out.println("before for loop");
+
+
+        //split the file into chunks
+
+        int maxReadBufferSize = 8 * 1024; //8KB
+
+        for(int destIx=1; destIx <= numSplits; destIx++) {
+
+        System.out.println(stagingFilePath + "/"+ filePrefix +".split."+ destIx + "." + fileExtension);
+
+            BufferedOutputStream bw = new BufferedOutputStream(new FileOutputStream(stagingFilePath + "/"+ filePrefix +".split."+ destIx + "." + fileExtension));
+
+            System.out.println("After Bufferedoutput stream");
+
+            if(bytesPerSplit > maxReadBufferSize) {
+
+                long numReads = bytesPerSplit/maxReadBufferSize;
+
+                long numRemainingRead = bytesPerSplit % maxReadBufferSize;
+
+                for(int i=0; i<numReads; i++) {
+
+                    readWrite(raf, bw, maxReadBufferSize);
+
+                    System.out.println("After ReadWrite1");
+
+                }
+
+                if(numRemainingRead > 0) {
+
+                    readWrite(raf, bw, numRemainingRead);
+
+                    System.out.println("After ReadWrite2");
+
+                }
+
+            }else {
+
+                readWrite(raf, bw, bytesPerSplit);
+
+                System.out.println("After ReadWrite3");
+
+            }
+
+            bw.close();
+
+        }
+
+        if(remainingBytes > 0) {
+
+            BufferedOutputStream bw = new BufferedOutputStream(new FileOutputStream(stagingFilePath+"/"+filePrefix+".split."+(numSplits+1)+  "." + fileExtension));
+
+            readWrite(raf, bw, remainingBytes);
+
+            System.out.println("After ReadWrite4");
+
+            bw.close();
+
+            System.out.println("After Buffered Stream close");
+
+        }
+
+            
+
+            raf.close();
+
+            System.out.println("After file close");
+
+            
+
+    }
