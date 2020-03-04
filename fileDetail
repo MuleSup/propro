@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:sftp="http://www.mulesoft.org/schema/mule/sftp" xmlns:api-gateway="http://www.mulesoft.org/schema/mule/api-gateway" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit" xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd  http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/api-gateway http://www.mulesoft.org/schema/mule/api-gateway/current/mule-api-gateway.xsd
+http://www.mulesoft.org/schema/mule/sftp http://www.mulesoft.org/schema/mule/sftp/current/mule-sftp.xsd">
+    <http:listener-config name="contactapi-httpListenerConfig">
+        <http:listener-connection host="0.0.0.0" port="8081" />
+    </http:listener-config>
+	<sftp:config name="SFTP_Config" doc:name="SFTP Config" doc:id="05f7c314-87cb-4902-bf49-ef62f615837d" >
+		<sftp:connection host="10.0.0.128" username="user1" password="secret" port="24"/>
+	</sftp:config>
+	<flow name="contactapiFlow" doc:id="ae82b5b0-1ee2-4a87-aa0a-3a0f4c7cf44c" >
+		<scheduler doc:name="Scheduler" doc:id="4d353f58-31b8-4fec-9d67-353518e7bf88" >
+			<scheduling-strategy >
+				<fixed-frequency frequency="1" timeUnit="MINUTES"/>
+			</scheduling-strategy>
+		</scheduler>
+		<sftp:list doc:name="List" doc:id="2ab1eab1-1475-4a8f-9e9f-330f0e127a43" config-ref="SFTP_Config" directoryPath="/" recursive="true">
+			<sftp:matcher/>
+		</sftp:list>
+		<foreach doc:name="For Each" doc:id="d8dfdde4-d046-4be9-b646-61e780158426" >
+			<choice doc:name="Choice" doc:id="ce26361f-c326-4aaa-802a-d906a1fedc33" >
+				<when expression="#[attributes.directory ==  true]">
+					<logger level="INFO" doc:name="Logger" doc:id="40e60f1b-7c82-4756-abdf-13f67057bcac" message="#['it is a directory ' ++ attributes.fileName ++ attributes.path]" />
+				</when>
+				<otherwise >
+					<logger level="INFO" doc:name="Logger" doc:id="23000b13-c898-4445-b1fc-17e384da4c49" message="#['it is a file for processing ' ++  attributes.fileName ++ attributes.path]"/>
+				</otherwise>
+			</choice>
+		</foreach>
+	</flow>
+</mule>
