@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:sftp="http://www.mulesoft.org/schema/mule/sftp"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/sftp http://www.mulesoft.org/schema/mule/sftp/current/mule-sftp.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<sftp:config name="SFTP_Config" doc:name="SFTP Config" doc:id="fa3adc42-a830-4ef4-9fb0-f4b5624a07a1" >
+		<sftp:connection host="#[payload.host]" username="#[payload.username]" password="#[payload.password]" port="24"/>
+	</sftp:config>
+	<configuration-properties doc:name="Configuration properties" doc:id="b8d37152-1850-45c7-9f6c-e87674ebb653" file="dynamic.properties" />
+	<flow name="pickfirstsetofproperties" doc:id="48370be5-7fb5-49f0-810d-b69e1540d809" >
+		<scheduler doc:name="Scheduler" doc:id="e4d806c3-26ce-4474-ae2b-e11d4397f135" >
+			<scheduling-strategy >
+				<fixed-frequency frequency="${schedule.cron_1}" timeUnit="MINUTES"/>
+			</scheduling-strategy>
+		</scheduler>
+		<logger level="INFO" doc:name="Logger" doc:id="778d4706-1df5-47d0-b865-6734ae61656b" message="triggered sceduler 1"/>
+		<set-variable value="1" doc:name="Set Variable" doc:id="862b779b-0b8b-4b0a-a5b2-98af3e1cba53" variableName="propName"/>
+		<flow-ref doc:name="Flow Reference" doc:id="787c0289-56a6-4f19-b038-f62892be902d" name="sampledynamicconfigurationsSub_Flow" targetValue="1"/>
+	</flow>
+	<flow name="picksecondsetofproperties" doc:id="fba958e6-8720-4976-9b9f-eb2510fc8ee2">
+		<scheduler doc:name="Scheduler" doc:id="86790fab-74f4-4a60-b8df-45bdf0e9c435">
+			<scheduling-strategy>
+				<fixed-frequency frequency="${schedule.cron_2}" timeUnit="MINUTES" />
+			</scheduling-strategy>
+		</scheduler>
+		<logger level="INFO" doc:name="Logger" doc:id="6a3caa9e-a826-4201-b320-153c7a1862c1" message="triggered scheduler 2" />
+		<set-variable value="2" doc:name="Set Variable" doc:id="99876f21-56b8-4b56-b5aa-19bf4901bd06" variableName="propName"/>
+		<flow-ref doc:name="Flow Reference" doc:id="98d15f88-4e90-4308-a293-f3e56ae8214d" targetValue="2" name="sampledynamicconfigurationsSub_Flow"/>
+	</flow>
+	<sub-flow name="sampledynamicconfigurationsSub_Flow" doc:id="fb55905a-6f42-4c9a-97e0-49cba7d2a7de" >
+		<logger level="INFO" doc:name="Logger" doc:id="a26cec02-a26f-46fb-9941-4a81101a3e13" message="#[vars.propName]" />
+		<ee:transform doc:name="Transform Message" doc:id="f6946cc7-25c8-437c-ba5c-69263ec0d5c7">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/java
+---
+{
+	host:p('host.name_' ++ vars.propName) , 
+	username:p('user.name_' ++ vars.propName) , 
+	password:p('user.password_' ++ vars.propName)
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<sftp:list doc:name="List" doc:id="7284121d-c14e-47d4-aac2-76f2d170da19" config-ref="SFTP_Config" directoryPath="#[p('remotesource.dir_' ++ vars.propName)]" recursive="true">
+			<sftp:matcher />
+		</sftp:list>
+		<foreach doc:name="For Each" doc:id="5efa08bf-c3b3-4ed9-9a96-9b9b5e1c1214">
+			<logger level="INFO" doc:name="Logger" doc:id="37fd2daa-9624-4e84-ac2f-23df5412851f" message="#['filename:' ++ attributes.fileName ++ ' ' ++ 'path:' ++ attributes.path]" />
+		</foreach>
+	</sub-flow>
+</mule>
