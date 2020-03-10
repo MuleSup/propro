@@ -1,0 +1,289 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:email="http://www.mulesoft.org/schema/mule/email"
+	xmlns:scripting="http://www.mulesoft.org/schema/mule/scripting" xmlns:os="http://www.mulesoft.org/schema/mule/os"
+	xmlns:sftp="http://www.mulesoft.org/schema/mule/sftp"
+	xmlns:vm="http://www.mulesoft.org/schema/mule/vm" xmlns:aggregators="http://www.mulesoft.org/schema/mule/aggregators" xmlns:validation="http://www.mulesoft.org/schema/mule/validation" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:java="http://www.mulesoft.org/schema/mule/java" xmlns:batch="http://www.mulesoft.org/schema/mule/batch" xmlns:s3="http://www.mulesoft.org/schema/mule/s3" xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/sftp http://www.mulesoft.org/schema/mule/sftp/current/mule-sftp.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/s3 http://www.mulesoft.org/schema/mule/s3/current/mule-s3.xsd
+http://www.mulesoft.org/schema/mule/batch http://www.mulesoft.org/schema/mule/batch/current/mule-batch.xsd
+http://www.mulesoft.org/schema/mule/java http://www.mulesoft.org/schema/mule/java/current/mule-java.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/validation http://www.mulesoft.org/schema/mule/validation/current/mule-validation.xsd
+http://www.mulesoft.org/schema/mule/aggregators http://www.mulesoft.org/schema/mule/aggregators/current/mule-aggregators.xsd
+http://www.mulesoft.org/schema/mule/vm http://www.mulesoft.org/schema/mule/vm/current/mule-vm.xsd
+http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd
+http://www.mulesoft.org/schema/mule/scripting http://www.mulesoft.org/schema/mule/scripting/current/mule-scripting.xsd
+http://www.mulesoft.org/schema/mule/email http://www.mulesoft.org/schema/mule/email/current/mule-email.xsd">
+	<sftp:config name="SFTP_Config" doc:name="SFTP Config" doc:id="923a5961-3df7-4a74-9201-cc2e764b3bb8" >
+		<sftp:connection host="localhost" username="milan" password="milang" workingDir="/Users/Milan/mulesofttest/sftpfolder"/>
+	</sftp:config>
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="02ba59fb-e456-47d6-93e9-df032baf0085" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<file:config name="File_Config" doc:name="File Config" doc:id="75af4485-0b8f-4847-9309-24c7fdae8902" >
+		<file:connection />
+	</file:config>
+	<file:config name="File_Config1" doc:name="File Config" doc:id="dd8f10a1-5431-4353-b564-5d275cac41b1" >
+		<file:connection workingDir="/Users/Milan/mulesofttest/source" />
+	</file:config>
+	<vm:config name="VM_Config" doc:name="VM Config" doc:id="76285b33-bbaa-44aa-bf12-12bcf84eef8e" >
+		<vm:connection />
+		<vm:queues >
+			<vm:queue queueName="filemessage" />
+		</vm:queues>
+	</vm:config>
+	<os:object-store name="Object_store" doc:name="Object store" doc:id="c43cac7f-c63e-424e-8016-9f543f387d3a" maxEntries="10" entryTtlUnit="DAYS" expirationIntervalUnit="DAYS" persistent="false" entryTtl="1"/>
+	<email:smtp-config name="Email_SMTP" doc:name="Email SMTP" doc:id="adef401b-686c-4fb7-815b-f527f4ad70f7" >
+		<email:smtp-connection host="outlook.office365.com" port="587"/>
+	</email:smtp-config>
+	<flow name="dwnldFlow" doc:id="9677f58a-f83f-41e6-8a88-7930172197d5" maxConcurrency="1">
+		<file:listener doc:name="On New or Updated File" doc:id="b812ac52-3100-4992-a1bf-1414d1635117" config-ref="File_Config1" watermarkMode="MODIFIED_TIMESTAMP" directory="/Users/Milan/mulesofttest/source">
+			<scheduling-strategy >
+				<fixed-frequency />
+			</scheduling-strategy>
+		</file:listener>
+		<logger level="INFO" doc:name="Logger" doc:id="3658d121-8f84-4323-8dc4-68ce45fb4eb9" message="#[attributes.path]"/>
+		<os:store doc:name="Store" doc:id="001f2808-eb2b-4275-b996-24f1610e5260" key="#[attributes.fileName]" objectStore="Object_store">
+			<os:value ><![CDATA[processing]]></os:value>
+		</os:store>
+		<vm:publish doc:name="Publish" doc:id="253b8f29-3d2b-471b-b792-4744893a4f9a" config-ref="VM_Config" queueName="filemessage">
+			<vm:content ><![CDATA[#[{filename : attributes.fileName ,  path:attributes.path}]]]></vm:content>
+		</vm:publish>
+	</flow>
+	<flow name="splitFileFlow" doc:id="05908fb9-c1df-4bd8-bfda-473aac7b782f" maxConcurrency="1">
+		<vm:listener queueName="filemessage" doc:name="Listener" doc:id="869b1437-e17e-4a71-aa31-4f3f24beb677" config-ref="VM_Config" numberOfConsumers="1" timeout="0"/>
+		<logger level="INFO" doc:name="Logger" doc:id="097e4609-b5a9-4aec-b409-70130555a490" message="#[payload.path]"/>
+		<set-variable value="#[now()]" doc:name="Set Entry Time" doc:id="d1e46b1b-46a8-4f62-bcaa-e73fbc149be7" variableName="entryTime" />
+		<set-variable value="#[payload.path]" doc:name="Set File Path" doc:id="2d17e69f-481b-474f-9e8d-c46e3b0b7dc0" variableName="filepath"/>
+		<set-variable value="#[payload.filename]" doc:name="Set File Name" doc:id="354a264e-c616-48cc-b9ca-fa8577d83473" variableName="filename"/>
+		<set-variable value="#[correlationId ++ '---' ++ uuid()]" doc:name="Set Record ID" doc:id="4a02da85-1bb4-4854-a146-d902769f2264" variableName="recordID"/>
+		<ee:transform doc:name="Transform Message" doc:id="21220fe8-baaa-4369-a18b-200c8e787b63" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="fileDetails" ><![CDATA[%dw 2.0
+output application/java
+import * from dw::core::Strings
+var tempVar = vars.filepath splitBy "milan/"
+var tempPathArray = tempVar[1] splitBy "/"
+var folderArray = tempPathArray filter ((value, index) -> (index < sizeOf (tempPathArray) - 1))
+var tempFileArray = vars.filename splitBy "."
+var prefixArray = tempFileArray filter ((value, index) -> (index < sizeOf (tempFileArray) - 1))
+
+
+---
+{
+	fileNamePrefix : prefixArray joinBy ".",
+	fileNameExtension: tempFileArray[sizeOf(tempFileArray) -1],
+	folderName :  folderArray joinBy ".",
+}]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="87621b47-3eb6-47eb-a4b6-f4397ae9c69f" message="#[vars.fileDetails]"/>
+		<set-variable value='#["/Users/Milan/mulesofttest/staging/" ++ vars.fileDetails.fileNamePrefix]' doc:name="Set Variable" doc:id="a9995b2f-809b-4655-b7b5-522177a36f2a" variableName="tempFolderPath" />
+		<set-variable value="#[vars.fileDetails.folderName]" doc:name="Set Variable" doc:id="b229908b-2d93-48bd-8e44-a9ec8cae48b1" variableName="foldername"/>
+		<file:create-directory doc:name="Create directory" doc:id="47df1853-e59a-444c-a341-bc552343374b" directoryPath="#[vars.tempFolderPath]" config-ref="File_Config"/>
+		<java:new doc:name="New" doc:id="a801743a-a5b3-4a3d-b3c1-a3d34e0638fa" class="s3withdirectory.FileSplit" constructor="FileSplit()" target="fileSplit"/>
+		<java:invoke doc:name="Invoke" doc:id="77aa71c0-7357-49c7-9bf4-39c50ae03867" instance="#[vars.fileSplit]" class="s3withdirectory.FileSplit" method='splitFile(String,String,Integer,String,String)'>
+			<java:args ><![CDATA[#[{
+       inputFilePath : vars.filepath,
+        stagingFilePath : vars.tempFolderPath,
+        bytesPerSplit : 5242880,
+        filePrefix : vars.fileDetails.fileNamePrefix,
+        fileExtension : vars.fileDetails.fileNameExtension
+        
+        }]]]></java:args>
+		</java:invoke>
+		<logger level="INFO" doc:name="Logger" doc:id="1e5dfcd2-f778-4f7a-8497-6ac00e80ec5e" message="file split successful . "/>
+		<set-variable value="#[payload]" doc:name="Set Variable" doc:id="5b57380b-669b-45f2-81e7-e7cf696478aa" variableName="uploadID"/>
+		<file:list doc:name="List" doc:id="b20b3ecd-1062-477e-a183-b4ee7b37a114" directoryPath="#[vars.tempFolderPath]" config-ref="File_Config" />
+		<set-variable value="#[sizeOf(payload)]" doc:name="Set Variable" doc:id="9052d22d-b1d2-4d72-8c7c-762d2a2f81f6" variableName="groupsize"/>
+		<ee:transform doc:name="Transform Message" doc:id="56c522f4-33a8-4a98-b939-238e630ab142" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="fileData" ><![CDATA[%dw 2.0
+output application/java
+---
+{
+	filedetails:payload.attributes map ((file,index) ->{
+		folderName :  vars.fileDetails.folderName,
+		filePrefix : vars.fileDetails.fileNamePrefix , 
+		filePath:file.path,
+		fileName:file.fileName
+	})
+}]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="babd4cc8-4e19-4711-a89d-fbad4bd61d20" message="  NUMBER OF File chunks are : #[sizeOf(payload)] , file details are : #[vars.fileData]"/>
+		<set-payload doc:name="Set Payload" doc:id="dcac0ae8-8d86-4f2b-befa-411df1820f58" value="#[vars.fileData.filedetails]"/>
+		<flow-ref doc:name="Flow Reference" doc:id="bb1d4f6d-0877-4148-b350-9aaea97da2e0" name="initiateBatchJob"/>
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="caa9ad46-2678-40eb-8dd8-cce265510daf">
+			<logger level="INFO" doc:name="Logger" doc:id="fc0aee87-b56f-4ac5-813d-06288eb3fa90" message="error block #[error]" />
+		</on-error-propagate>
+		</error-handler>
+	</flow>
+	<flow name="initiateBatchJob" doc:id="b09a7628-3541-4603-b9d1-4c189401b8d0" maxConcurrency="1">
+		<batch:job jobName="s3uploadpocBatch_Job1" doc:id="0c25c9e1-b983-433d-a2d4-b7a43f927d0d" blockSize="1" maxConcurrency="2">
+			<batch:process-records>
+				<batch:step name="Batch_Step" doc:id="587f5e27-7db0-41fa-a0e2-d661939c1ed8">
+					<logger level="INFO" doc:name="Logger" doc:id="dc66c7c5-1c41-41cb-a27b-9c45cf156b99" message="#[payload.filedetails]"/>
+					<flow-ref doc:name="Flow Reference" doc:id="6ec27664-42b6-4dda-90d2-079a2143ffda" name="uploadSinglePartFlow"/>
+					<aggregators:group-based-aggregator name="Aggregator1" doc:name="Group based aggregator" doc:id="5e33997d-4773-429d-91c9-8162dc990cc0" groupId="#[vars.recordID]" groupSize="#[vars.groupsize]">
+						<aggregators:incremental-aggregation>
+							<logger level="INFO" doc:name="Logger" doc:id="c07761f7-4197-4f7b-ab4e-af64538d2c58" message="Incremental size #[sizeOf(payload)]" />
+						</aggregators:incremental-aggregation>
+						<aggregators:aggregation-complete>
+							<ee:transform doc:name="Transform Message" doc:id="e5e90705-1d92-437a-a234-811646152634">
+							<ee:message>
+								<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+							</ee:message>
+						</ee:transform>
+							<logger level="INFO" doc:name="Logger" doc:id="435fffdb-fb88-41e0-a7e0-fc1f4ef5e8a9" message="payload is : #[payload]" />
+							<ee:transform doc:name="Transform Message" doc:id="d2efc579-3ea8-48e9-bf34-55afdb95d785">
+								<ee:message>
+									<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+								</ee:message>
+							</ee:transform>
+							<logger level="INFO" doc:name="Logger" doc:id="6315b35b-9dc4-4901-986d-4a394d9b254d" message="s3 upload completed . upload details : #[payload]" />
+							<logger level="INFO" doc:name="Logger" doc:id="172e69e5-1543-43b4-bcaf-5c57b86fe736" message='#["TimeTaken by s3upload process :" ++ (now() - vars.entryTime)]' />
+						</aggregators:aggregation-complete>
+					</aggregators:group-based-aggregator>
+				
+</batch:step>
+			</batch:process-records>
+			<batch:on-complete>
+				<os:store doc:name="Store" doc:id="d0b11a98-9c38-4748-814e-6b8bb8282c3e" key="#[vars.filename]" failOnNullValue="false" objectStore="Object_store">
+					<os:value ><![CDATA[completed]]></os:value>
+				</os:store>
+			</batch:on-complete>
+		</batch:job>
+		<logger level="INFO" doc:name="Logger" doc:id="9e6d06f1-8c09-4d48-8bcc-afede211c83d" message="batch flow completed." />
+		<error-handler>
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="143342d0-8560-462a-97fc-26ac496b3bd2">
+				<logger level="INFO" doc:name="Logger" doc:id="c4d5d0ba-a9b3-4395-b59c-dcdb44c9e3fd" message="error occured in batch mode : #[error]" />
+			</on-error-propagate>
+		</error-handler>
+	
+</flow>
+	<sub-flow name="uploadSinglePartFlow" doc:id="69fda355-c34f-4fb6-9851-d0bcf073146c" >
+		<set-variable value="#[payload.folderName]" doc:name="Set folder Name" doc:id="fea8af0a-3227-4359-b5e9-7bc34743d779" variableName="foldername"/>
+		<set-variable value="#[payload.filePrefix]" doc:name="Set File Prefix" doc:id="66184a93-4d54-48fc-a9b9-5b31e697ab06" variableName="fileprefix"/>
+		<set-variable value="#[payload.fileName]" doc:name="Set FilePart Name" doc:id="8203e35d-964f-404d-a079-c0ec3b1480db" variableName="filePartName"/>
+		<set-variable value="#[payload.filePath]" doc:name="Set File Path" doc:id="bfd7fb77-0d6c-4357-bda1-b06799580c83" variableName="filePartPath"/>
+		<logger level="INFO" doc:name="Logger" doc:id="ec7ca1f7-2228-4763-bae5-5e2afaef4d81" message="#[payload.fileName]"/>
+		<ee:transform doc:name="Transform Message" doc:id="6f5f9cdc-9de5-4f59-adb4-97acdda88902" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="partID" ><![CDATA[%dw 2.0
+output application/java
+---
+{
+	value:payload.fileName splitBy "."
+}[0][sizeOf(payload.fileName splitBy ".") - 2]]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="645352de-cb2e-4ebd-8c16-b7be93aada35" message="upload part completed for part . #[vars.filePartName] with payload : #[payload]"/>
+		<ee:transform doc:name="Transform Message" doc:id="4e01fcec-c7a3-4725-85e6-7a32076e91ca" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="etagData" ><![CDATA[%dw 2.0
+output application/java
+---
+payload]]></ee:set-variable>
+			</ee:variables>
+		
+</ee:transform>
+		<file:delete doc:name="Delete" doc:id="7ca26ec6-3d77-4d9f-98a5-461e2f77484f" path="#[vars.filePartPath]"/>
+		<logger level="INFO" doc:name="Logger" doc:id="99f62a87-e7ac-4e86-984d-bbdd668fb00d" message="#[vars.filePartName] moved to processed folder"/>
+		<set-payload value="#[now()]" doc:name="Set Payload" doc:id="49a94852-bec3-4b3f-b3fe-339d9783d204" />
+		
+	
+
+</sub-flow>
+<flow name="scheduleaflow" doc:id="a4b9e417-3db1-4281-975f-c5d1b36d666b" >
+		<scheduler doc:name="Scheduler" doc:id="78c54fd6-5b70-417f-bbc9-bb6930a9a4bc" >
+			<scheduling-strategy >
+				<fixed-frequency frequency="1" timeUnit="HOURS"/>
+			</scheduling-strategy>
+		</scheduler>
+		<os:store doc:name="Store" doc:id="e2195d09-e11b-4e98-a1c0-2d97b52c241f" key="iterationCount" objectStore="Object_store">
+			<os:value ><![CDATA[#[0]]]></os:value>
+		</os:store>
+		<flow-ref doc:name="Flow Reference" doc:id="f2237c3b-ba59-434d-baf0-14f533ffc5ca" name="checkForAllProcesses"/>
+	</flow>
+	<sub-flow name="checkForAllProcesses" doc:id="2b9fe20a-359a-4735-8c7a-6058b3418d4e" >
+		<set-variable value="true" doc:name="Set Variable" doc:id="c2c2a632-74ca-4347-aad3-c3e2156dd73e" variableName="allUploaded"/>
+		<os:retrieve doc:name="Retrieve" doc:id="b7465281-0cfc-4d08-af49-00319929852b" key="iterationCount" objectStore="Object_store" target="iterationCount"/>
+		<os:store doc:name="Store" doc:id="e880077a-4140-4db1-9f41-b6e5e89c7985" key="iterationCount" objectStore="Object_store">
+			<os:value ><![CDATA[#[vars.iterationCount + 1]]]></os:value>
+		</os:store>
+		<os:retrieve-all doc:name="Retrieve all" doc:id="4d347050-8063-491e-80b3-f85e1c361fae" objectStore="Object_store" />
+		<set-variable value="#[payload]" doc:name="Set Variable" doc:id="820a5073-7624-4e2f-af5a-fa1774a0631b" variableName="allData" />
+		<logger level="INFO" doc:name="Logger" doc:id="627e116f-6d37-44f5-a79b-a8f926c6986e" message="#[payload]"/>
+		<os:retrieve-all-keys doc:name="Retrieve all keys" doc:id="9aca330d-867a-4b05-8226-934f93b653f2" objectStore="Object_store"/>
+		<logger level="INFO" doc:name="Logger" doc:id="ffa9bfbf-7a69-42b2-bfb8-c85986532308" message="#[payload]"/>
+		<foreach doc:name="For Each" doc:id="16f6c7a7-9e07-4da8-8304-e8587567ec15" collection="#[payload]">
+			<os:retrieve doc:name="Retrieve" doc:id="b5c6fd31-123e-467e-9145-09a0224623dd" key="#[payload]" objectStore="Object_store"/>
+			<logger level="INFO" doc:name="Logger" doc:id="aec64646-e77f-4e0f-9b8e-c6e8c8f29730" message="#[payload]"/>
+			<choice doc:name="Choice" doc:id="363202ae-a71b-422a-a46f-95b26896f6ee" >
+				<when expression="#[payload == 'processing']">
+					<set-variable value="false" doc:name="Set Variable" doc:id="725a27b4-554e-42d8-b365-9c1e1528cbaa" variableName="allUploaded"/>
+				</when>
+			</choice>
+		</foreach>
+		<choice doc:name="Choice" doc:id="feee917c-7197-46d1-ae41-b341cac31287" >
+			<when expression="#[vars.allUploaded == 'true']">
+				<logger level="INFO" doc:name="Logger" doc:id="8b50edef-a770-449a-819f-02ee09a28ec7" message="done"/>
+				<email:send doc:name="Send" doc:id="486a8e37-dd2f-4968-98a8-03b112f42a7f" config-ref="Email_SMTP" fromAddress="mgarg@kopsco.com" subject="Satus of File Uploads">
+					<email:to-addresses >
+						<email:to-address value="mgarg@kopsco.com" />
+					</email:to-addresses>
+					<email:body >
+						<email:content ><![CDATA[#[vars.allData]]]></email:content>
+					</email:body>
+				</email:send>
+                                <os:clear doc:name="Clear" doc:id="f20ce63a-d8d8-440a-b0ed-ea7001cee69b" objectStore="Object_store" />
+			</when>
+			<otherwise>
+				<choice doc:name="Choice" doc:id="783e71c5-761a-4275-98e5-6ea0c2cbe8ad">
+					<when expression="#[vars.iterationCount &lt; 10]">
+						<ee:transform doc:name="Transform Message" doc:id="874e2245-1f8f-4175-bcf4-c89ba6460059">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+import * from dw::Runtime
+output application/json
+---
+{ "result" : 1 } wait 1000*60]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+						<flow-ref doc:name="Flow Reference" doc:id="48359dd7-1128-481d-9769-055354e30c61" name="checkForAllProcesses" />
+					</when>
+					<otherwise >
+						<email:send doc:name="Send" doc:id="0d1ed925-6e58-4f9e-9316-254cd32c5776" config-ref="Email_SMTP" fromAddress="mgarg@kopsco.com" subject="Status of Upload Files">
+							<email:to-addresses >
+								<email:to-address value="mgarg@kopsco.com" />
+							</email:to-addresses>
+							<email:body >
+								<email:content ><![CDATA[#[vars.allData]]]></email:content>
+							</email:body>
+						</email:send>
+                                                <os:clear doc:name="Clear" doc:id="a1d83d26-13ee-4078-95df-33431d264de1" objectStore="Object_store" />
+					</otherwise>
+				</choice>
+			</otherwise>
+		</choice>
+	</sub-flow>
+</mule>
