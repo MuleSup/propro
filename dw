@@ -1,0 +1,13 @@
+%dw 2.0
+output application/java
+var tempVar = vars.path splitBy "Incoming/"
+var tempPathArray = tempVar[1] splitBy "/"
+
+var otherVar = vars.newpath splitBy "Incoming/"
+var otherPathArray = otherVar[1] splitBy "/"
+---
+{
+	
+	qtrfolder : tempPathArray[0],
+	otherfolder : otherPathArray[0]
+}
