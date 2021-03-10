@@ -1,0 +1,32 @@
+%dw 2.0
+output application/json
+var sample = [
+  "10": [
+    {
+      "emp": 10,
+      "key": "john"
+    }, {
+      "emp": 10,
+      "key": "kelly"
+    }
+  ],
+  "20": [
+    {
+      "emp": 20,
+      "key": "sam"
+    }
+  ]
+]
+var abc = payload
+---
+abc map (firstInputValue) ->
+  {
+    person: {theId : firstInputValue.abc ,
+    theTitle: firstInputValue.cde,
+    id: firstInputValue.emp},
+   
+    (sample filter ($..emp contains firstInputValue.emp) map (secondInputValue) -> {
+      event : secondInputValue[0]
+    })
+  }
+
